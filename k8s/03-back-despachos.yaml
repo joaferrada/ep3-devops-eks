@@ -1,0 +1,64 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: back-despachos-deployment
+  namespace: ep3
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: back-despachos
+  template:
+    metadata:
+      labels:
+        app: back-despachos
+    spec:
+      imagePullSecrets:
+        - name: ecr-secret
+      containers:
+        - name: back-despachos
+          image: 808183399821.dkr.ecr.us-east-1.amazonaws.com/ep3/ep3-back-despachos:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8080
+          env:
+            - name: SERVER_PORT
+              value: "8080"
+            - name: DB_ENDPOINT
+              value: mysql-service
+            - name: DB_PORT
+              value: "3306"
+            - name: DB_NAME
+              value: despachos_db
+            - name: SPRING_DATASOURCE_URL
+              value: "jdbc:mysql://mysql-service:3306/despachos_db?allowPublicKeyRetrieval=true&useSSL=false&serverTimezone=UTC"
+            - name: DB_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: mysql-secret
+                  key: DB_USERNAME
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: mysql-secret
+                  key: DB_PASSWORD
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "256Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: back-despachos-service
+  namespace: ep3
+spec:
+  type: ClusterIP
+  selector:
+    app: back-despachos
+  ports:
+    - port: 8080
+      targetPort: 8080

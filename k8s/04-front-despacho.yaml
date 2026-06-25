@@ -1,0 +1,43 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: front-despacho-deployment
+  namespace: ep3
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: front-despacho
+  template:
+    metadata:
+      labels:
+        app: front-despacho
+    spec:
+      imagePullSecrets:
+        - name: ecr-secret
+      containers:
+        - name: front-despacho
+          image: 808183399821.dkr.ecr.us-east-1.amazonaws.com/ep3/ep3-front-despacho:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 80
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "300m"
+              memory: "256Mi"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: front-despacho-service
+  namespace: ep3
+spec:
+  type: LoadBalancer
+  selector:
+    app: front-despacho
+  ports:
+    - port: 80
+      targetPort: 80
