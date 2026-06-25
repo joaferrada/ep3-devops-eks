@@ -1,0 +1,4 @@
+URI
+808183399821.dkr.ecr.us-east-1.amazonaws.com/ep3/ep3-back-despachos
+808183399821.dkr.ecr.us-east-1.amazonaws.com/ep3/ep3-back-ventas
+808183399821.dkr.ecr.us-east-1.amazonaws.com/ep3/ep3-front-despacho
