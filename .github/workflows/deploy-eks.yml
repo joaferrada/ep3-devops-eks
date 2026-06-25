@@ -1,0 +1,73 @@
+name: Deploy EP3 to EKS
+
+on:
+  push:
+    branches:
+      - main
+
+env:
+  AWS_REGION: us-east-1
+  EKS_CLUSTER_NAME: ep3-eks-cluster
+  ECR_REGISTRY: 808183399821.dkr.ecr.us-east-1.amazonaws.com
+
+jobs:
+  build-push-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Clonar repositorio
+        uses: actions/checkout@v4
+
+      - name: Configurar credenciales AWS
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login en Amazon ECR
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build y push Frontend
+        run: |
+          docker build -t $ECR_REGISTRY/ep3/ep3-front-despacho:${{ github.sha }} ./front_despacho/front_despacho
+          docker push $ECR_REGISTRY/ep3/ep3-front-despacho:${{ github.sha }}
+
+      - name: Build y push Backend Ventas
+        run: |
+          docker build -t $ECR_REGISTRY/ep3/ep3-back-ventas:${{ github.sha }} ./back-Ventas_SpringBoot/back-Ventas_SpringBoot/Springboot-API-REST
+          docker push $ECR_REGISTRY/ep3/ep3-back-ventas:${{ github.sha }}
+
+      - name: Build y push Backend Despachos
+        run: |
+          docker build -t $ECR_REGISTRY/ep3/ep3-back-despachos:${{ github.sha }} ./back-Despachos_SpringBoot/back-Despachos_SpringBoot/Springboot-API-REST-DESPACHO
+          docker push $ECR_REGISTRY/ep3/ep3-back-despachos:${{ github.sha }}
+
+      - name: Configurar kubectl para EKS
+        run: |
+          aws eks update-kubeconfig --region $AWS_REGION --name $EKS_CLUSTER_NAME
+
+      - name: Aplicar manifiestos Kubernetes
+        run: |
+          kubectl apply -f k8s/00-namespace.yaml
+          kubectl apply -f k8s/01-mysql.yaml
+          kubectl apply -f k8s/02-back-ventas.yaml
+          kubectl apply -f k8s/03-back-despachos.yaml
+          kubectl apply -f k8s/04-front-despacho.yaml
+          kubectl apply -f k8s/05-hpa.yaml
+
+      - name: Actualizar imágenes en EKS
+        run: |
+          kubectl set image deployment/front-despacho-deployment front-despacho=$ECR_REGISTRY/ep3/ep3-front-despacho:${{ github.sha }} -n ep3
+          kubectl set image deployment/back-ventas-deployment back-ventas=$ECR_REGISTRY/ep3/ep3-back-ventas:${{ github.sha }} -n ep3
+          kubectl set image deployment/back-despachos-deployment back-despachos=$ECR_REGISTRY/ep3/ep3-back-despachos:${{ github.sha }} -n ep3
+
+      - name: Validar despliegue
+        run: |
+          kubectl rollout status deployment/front-despacho-deployment -n ep3
+          kubectl rollout status deployment/back-ventas-deployment -n ep3
+          kubectl rollout status deployment/back-despachos-deployment -n ep3
+          kubectl get pods -n ep3
+          kubectl get svc -n ep3
+          kubectl get hpa -n ep3
